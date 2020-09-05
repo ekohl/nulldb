@@ -12,6 +12,8 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
     end
   end
 
+  DATABASES = Hash.new { |hash, key| hash[key] = {} }
+
   # Copied from sqlite and added bigint
   NATIVE_DATABASE_TYPES = {
     primary_key:  "integer PRIMARY KEY AUTOINCREMENT NOT NULL",
@@ -38,9 +40,12 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
     @log            = StringIO.new
     @logger         = Logger.new(@log)
     @last_unique_id = 0
-    @tables         = {'schema_info' => new_table_definition(nil)}
     @schema_path    = config.fetch(:schema){ "db/schema.rb" }
     @config         = config.merge(:adapter => :nulldb)
+
+    @tables         = DATABASES[@config[:database]]
+    @tables['schema_info'] = new_table_definition(nil) if @tables.empty?
+
     super *initialize_args
     @visitor ||= Arel::Visitors::ToSql.new self if defined?(Arel::Visitors::ToSql)
 
