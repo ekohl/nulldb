@@ -39,7 +39,6 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
     @logger         = Logger.new(@log)
     @last_unique_id = 0
     @tables         = {'schema_info' => new_table_definition(nil)}
-    @indexes        = Hash.new { |hash, key| hash[key] = [] }
     @schema_path    = config.fetch(:schema){ "db/schema.rb" }
     @config         = config.merge(:adapter => :nulldb)
     super *initialize_args
@@ -99,9 +98,17 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
   end
 
   def add_index(table_name, column_names, options = {})
-    column_names = Array.wrap(column_names).map(&:to_s)
-    index_name, index_type, ignore = add_index_options(table_name, column_names, options)
-    @indexes[table_name] << IndexDefinition.new(table_name, index_name, (index_type == 'UNIQUE'), column_names, [], [])
+    index_name, index_type, _ignore = add_index_options(table_name, column_names, **options)
+    options[:name] = index_name
+    options[:type] = index_type
+    @tables[table_name].index(column_names, options)
+  end
+
+  def remove_index(table_name, options = {})
+    index_name = index_name_for_remove(table_name, options)
+    @tables[table_name].indexes.delete_if do |column_names, options|
+      options[:name] == index_name
+    end
   end
 
   unless instance_methods.include? :add_index_options
@@ -181,7 +188,14 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
 
   # Retrieve table indexes as defined by the schema
   def indexes(table_name)
-    @indexes[table_name]
+    @tables[table_name.to_s].indexes.map do |column_names, options|
+      IndexDefinition.new(
+        table_name,
+        options[:name],
+        options[:type] == 'UNIQUE',
+        Array(column_names).map(&:to_s),
+      )
+    end
   end
 
   def execute(statement, name = nil)
