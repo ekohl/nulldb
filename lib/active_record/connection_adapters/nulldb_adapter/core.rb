@@ -137,7 +137,7 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
   end
 
   # Retrieve table columns as defined by the schema
-  def columns(table_name, name = nil)
+  def columns(table_name)
     if @tables.size <= 1
       ActiveRecord::Migration.verbose = false
       schema_path = if Pathname(@schema_path).absolute?
@@ -159,7 +159,7 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
   end
 
   # Retrieve table indexes as defined by the schema
-  def indexes(table_name, name = nil)
+  def indexes(table_name)
     @indexes[table_name]
   end
 
