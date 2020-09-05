@@ -12,6 +12,23 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
     end
   end
 
+  # Copied from sqlite and added bigint
+  NATIVE_DATABASE_TYPES = {
+    primary_key:  "integer PRIMARY KEY AUTOINCREMENT NOT NULL",
+    string:       { name: "varchar" },
+    text:         { name: "text" },
+    integer:      { name: "integer" },
+    bigint:       { name: "bigint" },
+    float:        { name: "float" },
+    decimal:      { name: "decimal" },
+    datetime:     { name: "datetime" },
+    time:         { name: "time" },
+    date:         { name: "date" },
+    binary:       { name: "blob" },
+    boolean:      { name: "boolean" },
+    json:         { name: "json" },
+  }
+
   # Recognized options:
   #
   # [+:schema+] path to the schema file, relative to Rails.root
@@ -36,6 +53,10 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
 
     register_types unless NullDB::LEGACY_ACTIVERECORD || \
                           ActiveRecord::VERSION::MAJOR < 4
+  end
+
+  def native_database_types
+    NATIVE_DATABASE_TYPES
   end
 
   # A log of every statement that has been "executed" by this connection adapter
@@ -299,7 +320,7 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
   def args_with_optional_cast_type(col_def)
     default_column_arguments(col_def).tap do |args|
       if defined?(ActiveRecord::ConnectionAdapters::SqlTypeMetadata)
-        meta = ActiveRecord::ConnectionAdapters::SqlTypeMetadata.new(sql_type: col_def.type)
+        meta = ActiveRecord::ConnectionAdapters::SqlTypeMetadata.new(sql_type: col_def.type, type: col_def.type)
         args.insert(2, meta_with_limit!(meta, col_def))
       elsif initialize_column_with_cast_type?
         args.insert(2, meta_with_limit!(lookup_cast_type(col_def.type), col_def))
