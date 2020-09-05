@@ -97,6 +97,24 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
     @tables[table_name] = table_definition
   end
 
+  def rename_table(old_name, new_name)
+    old_table = @tables.delete(old_name)
+
+    create_table(new_name, id: false, **old_table.options) do |new_table|
+      old_table.columns.each do |column|
+        new_table.column(column.name, column.type, **column.options)
+      end
+
+      old_table.indexes.each do |column_names, options|
+        new_table.index(column_names, options)
+      end
+    end
+  end
+
+  def bulk_change_table(table_name, operations)
+    raise NotImplementedError
+  end
+
   def add_index(table_name, column_names, options = {})
     index_name, index_type, _ignore = add_index_options(table_name, column_names, **options)
     options[:name] = index_name
@@ -141,6 +159,37 @@ class ActiveRecord::ConnectionAdapters::NullDBAdapter < ActiveRecord::Connection
       index_name = index_name.to_s
       indexes(table_name).detect { |i| i.name == index_name }
     end
+  end
+
+  def add_column(table_name, column_name, type, **options)
+    @tables[table_name].column(column_name, type, **options)
+  end
+
+  def change_column(table_name, column_name, type, **options)
+    table = @tables[table_name]
+    table.remove_column(column_name)
+    table.column(column_name, type, **options)
+  end
+
+  def change_column_default(table_name, column_name, default_or_changes)
+    column = @tables[table_name][column_name]
+    column.options[:default] = default_or_changes
+  end
+
+  def change_column_null(table_name, column_name, null, default = nil)
+    column = @tables[table_name][column_name]
+    column.options[:null] = null
+  end
+
+  def rename_column(table_name, column_name, new_column_name)
+    table = @tables[table_name]
+    old_column = table.remove_column(column_name)
+    table.column(new_column_name, old_column.type, **old_column.options)
+  end
+
+  def remove_column(table_name, column_name, type = nil, **options)
+    @tables[table_name].remove_column(column_name)
+    # TODO: remove indexes on column_name
   end
 
   def add_fk_constraint(*args)
